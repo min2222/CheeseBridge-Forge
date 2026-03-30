@@ -1,40 +1,48 @@
 package kr.pyke.network.payload.c2s;
 
+import java.util.List;
+import java.util.UUID;
+import java.util.function.Supplier;
+
 import com.google.gson.Gson;
 import com.google.gson.JsonObject;
+
 import kr.pyke.CheeseBridge;
 import kr.pyke.PykeLib;
 import kr.pyke.config.CheeseBridgeConfig;
 import kr.pyke.integration.ChzzkBridge;
 import kr.pyke.integration.ChzzkDataState;
+import kr.pyke.network.CheeseBridgePacket;
 import kr.pyke.network.payload.s2c.S2C_AuthUrlPayload;
 import kr.pyke.network.payload.s2c.S2C_FinalTokenPayload;
 import kr.pyke.util.constants.COLOR;
-import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
-import net.minecraft.network.RegistryFriendlyByteBuf;
-import net.minecraft.network.codec.StreamCodec;
-import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
-import net.minecraft.resources.ResourceLocation;
-import org.jetbrains.annotations.NotNull;
+import net.minecraft.network.FriendlyByteBuf;
+import net.minecraft.network.protocol.Packet;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraftforge.network.NetworkDirection;
+import net.minecraftforge.network.NetworkEvent;
 
-import java.util.UUID;
+public class C2S_RequestRefreshPayload {
 
-public record C2S_RequestRefreshPayload() implements CustomPacketPayload {
-    public static final Type<C2S_RequestRefreshPayload> ID = new Type<>(ResourceLocation.fromNamespaceAndPath(CheeseBridge.MOD_ID, "c2s_request_refresh"));
+    public static void encode(C2S_RequestRefreshPayload packet, FriendlyByteBuf buf) {
+    }
 
-    public static final StreamCodec<RegistryFriendlyByteBuf, C2S_RequestRefreshPayload> STREAM_CODEC = StreamCodec.unit(new C2S_RequestRefreshPayload());
+    public static C2S_RequestRefreshPayload decode(FriendlyByteBuf buf) {
+        return new C2S_RequestRefreshPayload();
+    }
 
-    @Override public @NotNull Type<? extends CustomPacketPayload> type() { return ID; }
+    public static void handle(C2S_RequestRefreshPayload packet, Supplier<NetworkEvent.Context> ctx) {
+        ServerPlayer player = ctx.get().getSender();
+        if (player == null) return;
 
-    public static void handle(C2S_RequestRefreshPayload payload, ServerPlayNetworking.Context context) {
-        context.server().execute(() -> {
-            ChzzkDataState state = ChzzkDataState.getServerState(context.server());
-            ChzzkDataState.TokenInfo tokenInfo = state.playerTokens.get(context.player().getUUID());
+        ctx.get().enqueueWork(() -> {
+            ChzzkDataState state = ChzzkDataState.getServerState(player.getServer());
+            ChzzkDataState.TokenInfo tokenInfo = state.playerTokens.get(player.getUUID());
 
             boolean refreshSuccess = false;
 
             if (tokenInfo != null && tokenInfo.refreshToken() != null) {
-                CheeseBridge.LOGGER.info("[갱신] {} 님의 토큰 갱신을 시도합니다.", context.player().getName().getString());
+                CheeseBridge.LOGGER.info("[갱신] {} 님의 토큰 갱신을 시도합니다.", player.getName().getString());
                 String jsonResponse = ChzzkBridge.refreshAccessToken(tokenInfo.refreshToken());
 
                 if (jsonResponse != null) {
@@ -45,10 +53,11 @@ public record C2S_RequestRefreshPayload() implements CustomPacketPayload {
                             String newAccess = content.get("accessToken").getAsString();
                             String newRefresh = content.get("refreshToken").getAsString();
 
-                            state.playerTokens.put(context.player().getUUID(), new ChzzkDataState.TokenInfo(newAccess, newRefresh));
+                            state.playerTokens.put(player.getUUID(), new ChzzkDataState.TokenInfo(newAccess, newRefresh));
                             state.setDirty();
 
-                            ServerPlayNetworking.send(context.player(), new S2C_FinalTokenPayload(newAccess));
+                            Packet<?> vanillaPacket = CheeseBridgePacket.CHANNEL.toVanillaPacket(new S2C_FinalTokenPayload(newAccess), NetworkDirection.PLAY_TO_CLIENT);
+                            player.connection.send(vanillaPacket);
                             CheeseBridge.LOGGER.info("[갱신] 성공! 클라이언트에 새 토큰 전송 완료.");
                             refreshSuccess = true;
                         }
@@ -65,9 +74,12 @@ public record C2S_RequestRefreshPayload() implements CustomPacketPayload {
                 String authState = UUID.randomUUID().toString();
                 String authUrl = String.format("https://chzzk.naver.com/account-interlock?clientId=%s&redirectUri=%s&state=%s", clientId, "http://localhost:8080/callback", authState);
 
-                PykeLib.sendSystemMessage(java.util.List.of(context.player()), COLOR.RED.getColor(), "인증 세션이 만료되었습니다. 다시 로그인을 진행해주세요.");
-                ServerPlayNetworking.send(context.player(), new S2C_AuthUrlPayload(authUrl));
+                PykeLib.sendSystemMessage(List.of(player), COLOR.RED.getColor(), "인증 세션이 만료되었습니다. 다시 로그인을 진행해주세요.");
+                
+                Packet<?> vanillaPacket = CheeseBridgePacket.CHANNEL.toVanillaPacket(new S2C_AuthUrlPayload(authUrl), NetworkDirection.PLAY_TO_CLIENT);
+                player.connection.send(vanillaPacket);
             }
         });
+        ctx.get().setPacketHandled(true);
     }
 }

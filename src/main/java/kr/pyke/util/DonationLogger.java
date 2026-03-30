@@ -1,9 +1,5 @@
 package kr.pyke.util;
 
-import kr.pyke.CheeseBridge;
-import net.fabricmc.api.EnvType;
-import net.fabricmc.loader.api.FabricLoader;
-
 import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileWriter;
@@ -13,12 +9,16 @@ import java.text.NumberFormat;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 
+import kr.pyke.CheeseBridge;
+import net.minecraftforge.fml.loading.FMLPaths;
+import net.minecraftforge.server.ServerLifecycleHooks;
+
 public class DonationLogger {
-    private static final File LOG_FILE = FabricLoader.getInstance().getGameDir().resolve("logs/donation_history.log").toFile();
+    private static final File LOG_FILE = FMLPaths.GAMEDIR.get().resolve("logs/donation_history.log").toFile();
     private static final DateTimeFormatter TIME_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
 
     private static synchronized void writeToFile(String logLevel, String content) {
-        if (FabricLoader.getInstance().getEnvironmentType() != EnvType.SERVER) { return; }
+        if (ServerLifecycleHooks.getCurrentServer() == null) { return; }
 
         try {
             if (!LOG_FILE.getParentFile().exists()) { LOG_FILE.getParentFile().mkdirs(); }

@@ -1,27 +1,34 @@
 package kr.pyke.network.payload.s2c;
 
-import kr.pyke.CheeseBridge;
+import java.util.function.Supplier;
+
 import kr.pyke.command.IntegrationCommand;
-import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
-import net.minecraft.network.RegistryFriendlyByteBuf;
-import net.minecraft.network.codec.ByteBufCodecs;
-import net.minecraft.network.codec.StreamCodec;
-import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
-import net.minecraft.resources.ResourceLocation;
-import org.jetbrains.annotations.NotNull;
+import net.minecraft.network.FriendlyByteBuf;
+import net.minecraftforge.network.NetworkEvent;
 
-public record S2C_AuthUrlPayload(String url) implements CustomPacketPayload {
-    public static final Type<S2C_AuthUrlPayload> ID = new Type<>(ResourceLocation.fromNamespaceAndPath(CheeseBridge.MOD_ID, "s2c_auth_url"));
+public class S2C_AuthUrlPayload {
+    private final String url;
 
-    public static final StreamCodec<RegistryFriendlyByteBuf, S2C_AuthUrlPayload> STREAM_CODEC = StreamCodec.composite(
-        ByteBufCodecs.STRING_UTF8, S2C_AuthUrlPayload::url,
-        S2C_AuthUrlPayload::new
-    );
+    public S2C_AuthUrlPayload(String url) {
+        this.url = url;
+    }
 
-    @Override public @NotNull Type<? extends CustomPacketPayload> type() { return ID; }
+    public String url() {
+        return url;
+    }
 
+    public static void encode(S2C_AuthUrlPayload packet, FriendlyByteBuf buf) {
+        buf.writeUtf(packet.url);
+    }
 
-    public static void handle(S2C_AuthUrlPayload payload, ClientPlayNetworking.Context context) {
-        context.client().execute(() -> IntegrationCommand.startAuthProcess(payload.url()));
+    public static S2C_AuthUrlPayload decode(FriendlyByteBuf buf) {
+        return new S2C_AuthUrlPayload(buf.readUtf());
+    }
+
+    public static void handle(S2C_AuthUrlPayload packet, Supplier<NetworkEvent.Context> ctx) {
+        ctx.get().enqueueWork(() -> {
+            IntegrationCommand.startAuthProcess(packet.url());
+        });
+        ctx.get().setPacketHandled(true);
     }
 }

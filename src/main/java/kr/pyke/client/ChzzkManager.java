@@ -1,20 +1,21 @@
 package kr.pyke.client;
 
-import com.google.gson.Gson;
-import com.google.gson.JsonObject;
-import io.socket.client.IO;
-import io.socket.client.Socket;
-import kr.pyke.CheeseBridge;
-import kr.pyke.network.payload.c2s.C2S_DonationPayload;
-import kr.pyke.network.payload.c2s.C2S_RequestRefreshPayload;
-import kr.pyke.util.constants.COLOR;
-import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
-import net.minecraft.client.Minecraft;
-
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+
+import com.google.gson.Gson;
+import com.google.gson.JsonObject;
+
+import io.socket.client.IO;
+import io.socket.client.Socket;
+import kr.pyke.CheeseBridge;
+import kr.pyke.network.CheeseBridgePacket;
+import kr.pyke.network.payload.c2s.C2S_DonationPayload;
+import kr.pyke.network.payload.c2s.C2S_RequestRefreshPayload;
+import kr.pyke.util.constants.COLOR;
+import net.minecraft.client.Minecraft;
 
 public class ChzzkManager {
     private static final ChzzkManager INSTANCE = new ChzzkManager();
@@ -59,7 +60,7 @@ public class ChzzkManager {
 
                 if (authResponse.statusCode() == 401) {
                     CheeseBridge.LOGGER.warn("치지직 인증 실패 (만료됨). 토큰 갱신을 요청합니다.");
-                    ClientPlayNetworking.send(new C2S_RequestRefreshPayload());
+                    CheeseBridgePacket.CHANNEL.sendToServer(new C2S_RequestRefreshPayload());
                     return;
                 }
 
@@ -122,7 +123,7 @@ public class ChzzkManager {
 
                         CheeseBridge.LOGGER.info("후원 발생! {}: {}원", nickname, amount);
 
-                        ClientPlayNetworking.send(new C2S_DonationPayload(nickname, amount, text));
+                        CheeseBridgePacket.CHANNEL.sendToServer(new C2S_DonationPayload(nickname, amount, text));
                     }
                     catch (Exception e) { CheeseBridge.LOGGER.error("후원 데이터 처리 중 오류: ", e); }
                 });

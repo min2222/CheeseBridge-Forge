@@ -1,29 +1,36 @@
 package kr.pyke.network.payload.s2c;
 
+import java.util.function.Supplier;
+
 import kr.pyke.CheeseBridge;
 import kr.pyke.client.ChzzkManager;
-import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
-import net.minecraft.network.RegistryFriendlyByteBuf;
-import net.minecraft.network.codec.ByteBufCodecs;
-import net.minecraft.network.codec.StreamCodec;
-import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
-import net.minecraft.resources.ResourceLocation;
-import org.jetbrains.annotations.NotNull;
+import net.minecraft.network.FriendlyByteBuf;
+import net.minecraftforge.network.NetworkEvent;
 
-public record S2C_FinalTokenPayload(String accessToken) implements CustomPacketPayload {
-    public static final Type<S2C_FinalTokenPayload> ID = new Type<>(ResourceLocation.fromNamespaceAndPath(CheeseBridge.MOD_ID, "s2c_final_token"));
+public class S2C_FinalTokenPayload {
+    private final String accessToken;
 
-    public static final StreamCodec<RegistryFriendlyByteBuf, S2C_FinalTokenPayload> STREAM_CODEC = StreamCodec.composite(
-        ByteBufCodecs.STRING_UTF8, S2C_FinalTokenPayload::accessToken,
-        S2C_FinalTokenPayload::new
-    );
+    public S2C_FinalTokenPayload(String accessToken) {
+        this.accessToken = accessToken;
+    }
 
-    @Override public @NotNull Type<? extends CustomPacketPayload> type() { return ID; }
+    public String accessToken() {
+        return accessToken;
+    }
 
-    public static void handle(S2C_FinalTokenPayload payload, ClientPlayNetworking.Context context) {
-        CheeseBridge.LOGGER.info("[디버그] 클라이언트: 토큰 패킷 도착함! -> {}", payload.accessToken());
-        context.client().execute(() -> {
-            ChzzkManager.getInstance().connect(payload.accessToken());
+    public static void encode(S2C_FinalTokenPayload packet, FriendlyByteBuf buf) {
+        buf.writeUtf(packet.accessToken);
+    }
+
+    public static S2C_FinalTokenPayload decode(FriendlyByteBuf buf) {
+        return new S2C_FinalTokenPayload(buf.readUtf());
+    }
+
+    public static void handle(S2C_FinalTokenPayload packet, Supplier<NetworkEvent.Context> ctx) {
+        ctx.get().enqueueWork(() -> {
+            CheeseBridge.LOGGER.info("[디버그] 클라이언트: 토큰 패킷 도착함! -> {}", packet.accessToken());
+            ChzzkManager.getInstance().connect(packet.accessToken());
         });
+        ctx.get().setPacketHandled(true);
     }
 }

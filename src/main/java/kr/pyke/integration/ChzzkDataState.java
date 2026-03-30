@@ -1,15 +1,15 @@
 package kr.pyke.integration;
 
-import net.minecraft.core.HolderLookup;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.UUID;
+
+import org.jetbrains.annotations.NotNull;
+
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.world.level.saveddata.SavedData;
 import net.minecraft.world.level.storage.DimensionDataStorage;
-import org.jetbrains.annotations.NotNull;
-
-import java.util.HashMap;
-import java.util.Map;
-import java.util.UUID;
 
 public class ChzzkDataState extends SavedData {
     public record TokenInfo(String accessToken, String refreshToken) { }
@@ -18,7 +18,7 @@ public class ChzzkDataState extends SavedData {
 
     public ChzzkDataState() { }
 
-    public static ChzzkDataState fromNbt(CompoundTag nbt, HolderLookup.Provider registries) {
+    public static ChzzkDataState fromNbt(CompoundTag nbt) {
         ChzzkDataState state = new ChzzkDataState();
         CompoundTag tokensNbt = nbt.getCompound("playerTokens");
 
@@ -36,7 +36,7 @@ public class ChzzkDataState extends SavedData {
     }
 
     @Override
-    public @NotNull CompoundTag save(CompoundTag nbt, HolderLookup.Provider registries) {
+    public @NotNull CompoundTag save(CompoundTag nbt) {
         CompoundTag tokensNbt = new CompoundTag();
 
         playerTokens.forEach((uuid, tokenInfo) -> {
@@ -53,7 +53,7 @@ public class ChzzkDataState extends SavedData {
 
     public static ChzzkDataState getServerState(MinecraftServer server) {
         DimensionDataStorage storage = server.overworld().getDataStorage();
-
-        return storage.computeIfAbsent(new SavedData.Factory<>(ChzzkDataState::new, ChzzkDataState::fromNbt, null), "Cheese_Bridge");
+        
+        return storage.computeIfAbsent(ChzzkDataState::fromNbt, ChzzkDataState::new, "Cheese_Bridge");
     }
 }

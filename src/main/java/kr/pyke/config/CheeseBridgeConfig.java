@@ -1,14 +1,19 @@
 package kr.pyke.config;
 
-import com.google.gson.Gson;
-import com.google.gson.GsonBuilder;
-import kr.pyke.CheeseBridge;
-import net.fabricmc.loader.api.FabricLoader;
-import java.io.*;
+import java.io.File;
+import java.io.FileReader;
+import java.io.FileWriter;
+import java.io.IOException;
 import java.nio.file.Path;
 
+import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
+
+import kr.pyke.CheeseBridge;
+import net.minecraftforge.fml.loading.FMLPaths;
+
 public class CheeseBridgeConfig {
-    private static final Path CONFIG_PATH = FabricLoader.getInstance().getConfigDir().resolve("cheese_bridge.json");
+    private static final Path CONFIG_PATH = FMLPaths.CONFIGDIR.get().resolve("cheese_bridge.json");
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
     public static ConfigInstance DATA = new ConfigInstance();
 

@@ -1,28 +1,31 @@
 package kr.pyke.command;
 
+import java.util.List;
+import java.util.Objects;
+import java.util.UUID;
+
 import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.arguments.IntegerArgumentType;
 import com.mojang.brigadier.context.CommandContext;
+
 import kr.pyke.CheeseBridge;
 import kr.pyke.PykeLib;
 import kr.pyke.config.CheeseBridgeConfig;
 import kr.pyke.integration.ChzzkBridge;
 import kr.pyke.integration.ChzzkDataState;
 import kr.pyke.integration.ChzzkDonationEvent;
+import kr.pyke.network.CheeseBridgePacket;
 import kr.pyke.network.payload.s2c.S2C_AuthUrlPayload;
 import kr.pyke.network.payload.s2c.S2C_FinalTokenPayload;
 import kr.pyke.util.DonationLogger;
 import kr.pyke.util.constants.COLOR;
-import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
 import net.minecraft.commands.CommandBuildContext;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
 import net.minecraft.commands.arguments.EntityArgument;
+import net.minecraft.network.protocol.Packet;
 import net.minecraft.server.level.ServerPlayer;
-
-import java.util.List;
-import java.util.Objects;
-import java.util.UUID;
+import net.minecraftforge.network.NetworkDirection;
 
 public class DonationCommand {
     private DonationCommand() { }
@@ -78,7 +81,8 @@ public class DonationCommand {
             String savedToken = (tokenInfo != null) ? tokenInfo.accessToken() : null;
 
             if (savedToken != null) {
-                ServerPlayNetworking.send(player, new S2C_FinalTokenPayload(savedToken));
+                Packet<?> vanillaPacket = CheeseBridgePacket.CHANNEL.toVanillaPacket(new S2C_FinalTokenPayload(savedToken), NetworkDirection.PLAY_TO_CLIENT);
+                player.connection.send(vanillaPacket);
                 PykeLib.sendSystemMessage(List.of(player), COLOR.LIME.getColor(), "기존 연동 정보를 사용하여 즉시 재연동합니다.");
             }
             else {
@@ -87,7 +91,8 @@ public class DonationCommand {
 
                 String authUrl = String.format("https://chzzk.naver.com/account-interlock?clientId=%s&redirectUri=%s&state=%s", clientId, "http://localhost:8080/callback", state);
 
-                ServerPlayNetworking.send(player, new S2C_AuthUrlPayload(authUrl));
+                Packet<?> vanillaPacket = CheeseBridgePacket.CHANNEL.toVanillaPacket(new S2C_AuthUrlPayload(authUrl), NetworkDirection.PLAY_TO_CLIENT);
+                player.connection.send(vanillaPacket);
             }
 
             return 1;

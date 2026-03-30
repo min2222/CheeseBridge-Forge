@@ -1,32 +1,48 @@
 package kr.pyke.network.payload.c2s;
 
+import java.util.function.Supplier;
+
 import com.google.gson.Gson;
 import com.google.gson.JsonObject;
+
 import kr.pyke.CheeseBridge;
 import kr.pyke.integration.ChzzkBridge;
 import kr.pyke.integration.ChzzkDataState;
-import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
-import net.minecraft.network.RegistryFriendlyByteBuf;
-import net.minecraft.network.codec.ByteBufCodecs;
-import net.minecraft.network.codec.StreamCodec;
-import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
-import net.minecraft.resources.ResourceLocation;
-import org.jetbrains.annotations.NotNull;
+import kr.pyke.network.CheeseBridgePacket;
+import kr.pyke.network.payload.s2c.S2C_FinalTokenPayload;
+import net.minecraft.network.FriendlyByteBuf;
+import net.minecraft.network.protocol.Packet;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraftforge.network.NetworkDirection;
+import net.minecraftforge.network.NetworkEvent;
 
-public record C2S_AuthCodePayload(String code, String state) implements CustomPacketPayload {
-    public static final Type<C2S_AuthCodePayload> ID = new Type<>(ResourceLocation.fromNamespaceAndPath(CheeseBridge.MOD_ID, "c2s_auth_code"));
+public class C2S_AuthCodePayload {
+    private final String code;
+    private final String state;
 
-    public static final StreamCodec<RegistryFriendlyByteBuf, C2S_AuthCodePayload> STREAM_CODEC = StreamCodec.composite(
-        ByteBufCodecs.STRING_UTF8, C2S_AuthCodePayload::code,
-        ByteBufCodecs.STRING_UTF8, C2S_AuthCodePayload::state,
-        C2S_AuthCodePayload::new
-    );
+    public C2S_AuthCodePayload(String code, String state) {
+        this.code = code;
+        this.state = state;
+    }
 
-    @Override public @NotNull Type<? extends CustomPacketPayload> type() { return ID; }
+    public String code() { return code; }
+    public String state() { return state; }
 
-    public static void handle(C2S_AuthCodePayload payload, ServerPlayNetworking.Context context) {
-        context.server().execute(() -> {
-            String jsonResponse = ChzzkBridge.exchangeCodeForToken(payload.code(), payload.state());
+    public static void encode(C2S_AuthCodePayload packet, FriendlyByteBuf buf) {
+        buf.writeUtf(packet.code);
+        buf.writeUtf(packet.state);
+    }
+
+    public static C2S_AuthCodePayload decode(FriendlyByteBuf buf) {
+        return new C2S_AuthCodePayload(buf.readUtf(), buf.readUtf());
+    }
+
+    public static void handle(C2S_AuthCodePayload packet, Supplier<NetworkEvent.Context> ctx) {
+        ctx.get().enqueueWork(() -> {
+            ServerPlayer player = ctx.get().getSender();
+            if (player == null) return;
+
+            String jsonResponse = ChzzkBridge.exchangeCodeForToken(packet.code(), packet.state());
 
             if (jsonResponse != null) {
                 try {
@@ -37,11 +53,12 @@ public record C2S_AuthCodePayload(String code, String state) implements CustomPa
                         String accessToken = json.get("accessToken").getAsString();
                         String refreshToken = json.get("refreshToken").getAsString();
 
-                        ChzzkDataState state = ChzzkDataState.getServerState(context.server());
-                        state.playerTokens.put(context.player().getUUID(), new ChzzkDataState.TokenInfo(accessToken, refreshToken));
+                        ChzzkDataState state = ChzzkDataState.getServerState(player.getServer());
+                        state.playerTokens.put(player.getUUID(), new ChzzkDataState.TokenInfo(accessToken, refreshToken));
                         state.setDirty();
-
-                        ServerPlayNetworking.send(context.player(), new kr.pyke.network.payload.s2c.S2C_FinalTokenPayload(accessToken));
+                        
+                        Packet<?> vanillaPacket = CheeseBridgePacket.CHANNEL.toVanillaPacket(new S2C_FinalTokenPayload(accessToken), NetworkDirection.PLAY_TO_CLIENT);
+                        player.connection.send(vanillaPacket);
                         CheeseBridge.LOGGER.info("[인증] 토큰 발급 및 저장 완료!");
                     }
                     else { CheeseBridge.LOGGER.error("[인증] 토큰 발급 실패 (응답 내용): {}", jsonResponse); }
@@ -49,5 +66,6 @@ public record C2S_AuthCodePayload(String code, String state) implements CustomPa
                 catch (Exception e) { CheeseBridge.LOGGER.error("[인증] 응답 파싱 실패: ", e); }
             }
         });
+        ctx.get().setPacketHandled(true);
     }
 }

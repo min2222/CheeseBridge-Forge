@@ -1,15 +1,19 @@
 {
 	"required": true,
+	"minVersion": "0.8",
+	"plugin": "kr.pyke.CheeseBridgeMixinPlugin",
 	"package": "kr.pyke.mixin",
-	"compatibilityLevel": "JAVA_21",
+	"compatibilityLevel": "JAVA_17",
 	"mixins": [
 	],
 	"client": [
+		"client.ChatComponentMixin"
 	],
 	"injectors": {
 		"defaultRequire": 1
 	},
 	"overwrites": {
 		"requireAnnotations": true
-	}
+	},
+	"refmap": "cheese-bridge.refmap.json"
 }

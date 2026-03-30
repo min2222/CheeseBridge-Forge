@@ -1,13 +1,14 @@
 package kr.pyke.client;
 
-import com.sun.net.httpserver.HttpServer;
-import kr.pyke.CheeseBridge;
-import kr.pyke.network.payload.c2s.C2S_AuthCodePayload;
-import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
-
 import java.io.OutputStream;
 import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
+
+import com.sun.net.httpserver.HttpServer;
+
+import kr.pyke.CheeseBridge;
+import kr.pyke.network.CheeseBridgePacket;
+import kr.pyke.network.payload.c2s.C2S_AuthCodePayload;
 
 public class ChzzkAuthServer {
     private HttpServer server;
@@ -36,7 +37,7 @@ public class ChzzkAuthServer {
 
                 String response;
                 if (code != null && state != null) {
-                    ClientPlayNetworking.send(new C2S_AuthCodePayload(code, state));
+                    CheeseBridgePacket.CHANNEL.sendToServer(new C2S_AuthCodePayload(code, state));
                     response = "<html><head><meta charset=\"utf-8\"></head><body style='text-align:center;padding-top:50px;'><h1>인증 완료!</h1><p>이제 브라우저를 닫고 게임으로 돌아가세요.</p></body></html>";
                 }
                 else { response = "<html><head><meta charset=\"utf-8\"></head><body><h1>연동 실패</h1><p>필수 정보가 누락되었습니다.</p></body></html>"; }

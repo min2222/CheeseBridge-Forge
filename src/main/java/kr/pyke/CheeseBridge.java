@@ -1,44 +1,19 @@
 package kr.pyke;
 
-import kr.pyke.command.DonationCommand;
-import kr.pyke.config.CheeseBridgeConfig;
-import kr.pyke.integration.ChzzkDataState;
-import kr.pyke.network.CheeseBridgePacket;
-import kr.pyke.network.payload.s2c.S2C_FinalTokenPayload;
-import net.fabricmc.api.ModInitializer;
-
-import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
-import net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents;
-import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
-import net.minecraft.server.level.ServerPlayer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class CheeseBridge implements ModInitializer {
-	public static final String MOD_ID = "cheese-bridge";
+import kr.pyke.config.CheeseBridgeConfig;
+import kr.pyke.network.CheeseBridgePacket;
+import net.minecraftforge.fml.common.Mod;
+
+@Mod(CheeseBridge.MOD_ID)
+public class CheeseBridge {
+	public static final String MOD_ID = "cheese_bridge";
 	public static final Logger LOGGER = LoggerFactory.getLogger(MOD_ID);
-
-	@Override
-	public void onInitialize() {
+	
+	public CheeseBridge() {
 		CheeseBridgeConfig.loadConfiguration();
-
-		CheeseBridgePacket.registerCodec();
-		CheeseBridgePacket.registerServer();
-
-		CommandRegistrationCallback.EVENT.register(DonationCommand::register);
-
-		ServerPlayConnectionEvents.JOIN.register((handler, sender, server) -> {
-			server.execute(() -> {
-				ServerPlayer player = handler.getPlayer();
-
-				ChzzkDataState state = ChzzkDataState.getServerState(server);
-				ChzzkDataState.TokenInfo tokenInfo = state.playerTokens.get(player.getUUID());
-
-				if (tokenInfo != null) {
-					ServerPlayNetworking.send(player, new S2C_FinalTokenPayload(tokenInfo.accessToken()));
-					LOGGER.info("[인증] {} 님의 토큰을 로드하여 자동 연결합니다.", player.getName().getString());
-				}
-			});
-		});
+		CheeseBridgePacket.registerMessages();
 	}
 }
